@@ -1,0 +1,7 @@
+{
+  "from": "Or Davidovitz <or@example.com>",
+  "replyTo": "or@example.com",
+  "subject": "Project meeting notes",
+  "body": "Hi, sharing the notes from today meeting. Let me know if you have any comments.",
+  "attachmentNames": ["notes.pdf"]
+}

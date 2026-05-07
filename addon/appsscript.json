@@ -1,0 +1,30 @@
+{
+  "timeZone": "Asia/Jerusalem",
+  "exceptionLogging": "STACKDRIVER",
+  "runtimeVersion": "V8",
+  "oauthScopes": [
+    "https://www.googleapis.com/auth/gmail.addons.execute",
+    "https://www.googleapis.com/auth/gmail.addons.current.message.readonly",
+    "https://www.googleapis.com/auth/script.external_request"
+  ],
+  "addOns": {
+    "common": {
+      "name": "Email Risk Analyzer",
+      "logoUrl": "https://www.gstatic.com/images/icons/material/system/1x/security_black_48dp.png",
+      "layoutProperties": {
+        "primaryColor": "#1A73E8"
+      }
+    },
+    "gmail": {
+      "contextualTriggers": [
+        {
+          "unconditional": {},
+          "onTriggerFunction": "onGmailMessageOpen"
+        }
+      ],
+      "openLinkUrlPrefixes": [
+        "https://superman-comprised-opposite.ngrok-free.dev"
+      ]
+    }
+  }
+}
