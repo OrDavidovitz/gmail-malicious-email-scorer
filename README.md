@@ -538,7 +538,6 @@ Reasons:
 - Emails are untrusted input.
 - Very large payloads should not be allowed to consume excessive resources.
 
-
 ### API key protection
 
 The `/api/analyze` endpoint requires an `X-API-Key` header.
@@ -552,6 +551,36 @@ This is a lightweight demo-level protection so the exposed backend endpoint is n
 ngrok is not a production deployment strategy. It is used to let Gmail call a local backend during development.
 
 In production, the backend should be deployed to a managed cloud service behind HTTPS.
+
+## Threat model
+
+This project assumes that email content, attachment names, links, sender metadata, and backend responses are untrusted.
+
+Main risks considered:
+
+- Malicious or oversized email content sent to the backend.
+- Suspicious links designed to track users or redirect to malicious infrastructure.
+- Attachments with risky extensions or deceptive double extensions.
+- Sender spoofing, reply-to mismatch, and lookalike domains.
+- Public exposure of the backend endpoint during demo.
+- Unexpected text rendered inside the Gmail Add-on UI.
+
+Mitigations implemented:
+
+- The backend validates request field sizes.
+- The add-on sends only selected fields instead of the full Gmail object.
+- Attachment contents are not downloaded or opened.
+- Links are not opened, followed, or expanded.
+- Displayed text is escaped before rendering inside the Gmail card.
+- The `/api/analyze` endpoint requires an `X-API-Key` header.
+- The backend reads the API key from an environment variable, with a development fallback for local testing.
+
+Remaining risks:
+
+- The shared API key is demo-level protection, not full production authentication.
+- The system does not verify SPF, DKIM, DMARC, or full raw email headers.
+- The system does not use threat intelligence or sandboxed URL/attachment analysis.
+- Heuristic detection can produce false positives and false negatives.
 
 ## Limitations
 
