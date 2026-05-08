@@ -403,7 +403,7 @@ The backend is containerized, so it can be deployed directly to Google Cloud Run
 The submitted demo uses Cloud Run as the public HTTPS backend for the Gmail Add-on:
 
 ```text
-https://email-security-backend-557464179156.europe-west1.run.app
+https://email-security-backend-eitwdbwn3q-ew.a.run.app
 ```
 
 Enable the required Google Cloud services:
@@ -430,13 +430,13 @@ The service is publicly reachable because Gmail Apps Script needs to call it ove
 Cloud Run health check:
 
 ```bash
-curl https://email-security-backend-557464179156.europe-west1.run.app/api/health
+curl https://email-security-backend-eitwdbwn3q-ew.a.run.app/api/health
 ```
 
 Analyze endpoint without API key:
 
 ```bash
-curl -i -X POST https://email-security-backend-557464179156.europe-west1.run.app/api/analyze \
+curl -i -X POST https://email-security-backend-eitwdbwn3q-ew.a.run.app/api/analyze \
   -H "Content-Type: application/json" \
   -d @examples/phishing-email.json
 ```
@@ -450,7 +450,7 @@ HTTP/2 401
 Analyze endpoint with API key:
 
 ```bash
-curl -i -X POST https://email-security-backend-557464179156.europe-west1.run.app/api/analyze \
+curl -i -X POST https://email-security-backend-eitwdbwn3q-ew.a.run.app/api/analyze \
   -H "Content-Type: application/json" \
   -H "X-API-Key: <YOUR_API_KEY>" \
   -d @examples/phishing-email.json
@@ -542,7 +542,7 @@ Google Apps Script runs in Google cloud, so it cannot call `localhost`.
 The submitted version uses the deployed Cloud Run backend:
 
 ```javascript
-const BACKEND_URL = 'https://email-security-backend-557464179156.europe-west1.run.app';
+const BACKEND_URL = 'https://email-security-backend-eitwdbwn3q-ew.a.run.app';
 const API_KEY_PROPERTY_NAME = 'EMAIL_ANALYZER_API_KEY';
 ```
 
@@ -558,7 +558,7 @@ The same Cloud Run URL should appear in `appsscript.json`:
 
 ```json
 "openLinkUrlPrefixes": [
-  "https://email-security-backend-557464179156.europe-west1.run.app"
+  "https://email-security-backend-eitwdbwn3q-ew.a.run.app"
 ]
 ```
 
