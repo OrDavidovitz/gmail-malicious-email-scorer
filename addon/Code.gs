@@ -79,15 +79,19 @@ CardService.newTextParagraph()
 .setText('<b>Why this email was flagged:</b>')
 );
 
-result.signals.forEach(function(signal) {
-section.addWidget(
-CardService.newTextParagraph()
-.setText(
-'<b>' + escapeHtml(signal.category) + ' - ' + escapeHtml(signal.severity) + '</b><br>' +
-escapeHtml(signal.message) +
-'<br><i>Points: ' + signal.points + '</i>'
-)
-);
+const sortedSignals = result.signals.slice().sort(function(a, b) {
+  return b.points - a.points;
+});
+
+sortedSignals.forEach(function(signal) {
+  section.addWidget(
+    CardService.newTextParagraph()
+      .setText(
+        '<b>' + escapeHtml(signal.category) + ' - ' + escapeHtml(signal.severity) + '</b><br>' +
+        escapeHtml(signal.message) +
+        '<br><i>Points: ' + signal.points + '</i>'
+      )
+  );
 });
 } else {
 section.addWidget(
