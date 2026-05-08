@@ -20,6 +20,9 @@ public class EmailAnalysisRequest {
 
     private List<String> attachmentNames;
 
+    @Size(max = 5000)
+    private String authenticationResults;
+
     public EmailAnalysisRequest() {
     }
 
@@ -61,5 +64,13 @@ public class EmailAnalysisRequest {
 
     public void setAttachmentNames(List<String> attachmentNames) {
         this.attachmentNames = attachmentNames;
+    }
+
+    public String getAuthenticationResults() {
+        return authenticationResults;
+    }
+
+    public void setAuthenticationResults(String authenticationResults) {
+        this.authenticationResults = authenticationResults;
     }
 }

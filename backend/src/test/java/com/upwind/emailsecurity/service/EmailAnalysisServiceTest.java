@@ -69,4 +69,24 @@ class EmailAnalysisServiceTest {
         assertEquals(30, response.getScore());
         assertEquals(Verdict.MEDIUM, response.getVerdict());
     }
+    @Test
+    void analyzeWithFailedAuthenticationShouldReturnAuthenticationSignal() {
+        EmailAnalysisRequest request = new EmailAnalysisRequest();
+        request.setFrom("Security Alert <security@example.com>");
+        request.setReplyTo("security@example.com");
+        request.setSubject("Account notice");
+        request.setBody("Please review your account activity.");
+        request.setAuthenticationResults("spf=fail dkim=pass dmarc=fail");
+        request.setAttachmentNames(List.of());
+
+        EmailAnalysisResponse response = emailAnalysisService.analyze(request);
+
+        assertTrue(response.getSignals().stream()
+                .anyMatch(signal -> signal.getCategory().equals("AUTHENTICATION")
+                        && signal.getMessage().contains("SPF")));
+
+        assertTrue(response.getSignals().stream()
+                .anyMatch(signal -> signal.getCategory().equals("AUTHENTICATION")
+                        && signal.getMessage().contains("DMARC")));
+    }
 }

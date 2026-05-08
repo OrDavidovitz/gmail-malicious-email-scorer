@@ -9,6 +9,7 @@ import com.upwind.emailsecurity.model.EmailAnalysisResponse;
 import com.upwind.emailsecurity.model.RiskSignal;
 import com.upwind.emailsecurity.model.Verdict;
 import org.springframework.stereotype.Service;
+import com.upwind.emailsecurity.detector.AuthenticationDetector;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -21,17 +22,20 @@ public class EmailAnalysisService {
     private final ContentDetector contentDetector;
     private final LinkDetector linkDetector;
     private final AttachmentDetector attachmentDetector;
+    private final AuthenticationDetector authenticationDetector;
 
     public EmailAnalysisService(ScoringEngine scoringEngine,
                                 SenderDetector senderDetector,
                                 ContentDetector contentDetector,
                                 LinkDetector linkDetector,
-                                AttachmentDetector attachmentDetector) {
+                                AttachmentDetector attachmentDetector,
+                                AuthenticationDetector authenticationDetector) {
         this.scoringEngine = scoringEngine;
         this.senderDetector = senderDetector;
         this.contentDetector = contentDetector;
         this.linkDetector = linkDetector;
         this.attachmentDetector = attachmentDetector;
+        this.authenticationDetector = authenticationDetector;
     }
 
     public EmailAnalysisResponse analyze(EmailAnalysisRequest request) {
@@ -41,6 +45,7 @@ public class EmailAnalysisService {
         signals.addAll(contentDetector.detect(request));
         signals.addAll(linkDetector.detect(request));
         signals.addAll(attachmentDetector.detect(request));
+        signals.addAll(authenticationDetector.detect(request.getAuthenticationResults()));
 
         int score = scoringEngine.calculateScore(signals);
         Verdict verdict = scoringEngine.determineVerdict(score);
