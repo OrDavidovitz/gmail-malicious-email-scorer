@@ -1,4 +1,4 @@
-const BACKEND_URL = 'https://email-security-backend-557464179156.europe-west1.run.app';
+const BACKEND_URL = 'https://email-security-backend-eitwdbwn3q-ew.a.run.app';
 const API_KEY_PROPERTY_NAME = 'EMAIL_ANALYZER_API_KEY';
 
 function onGmailMessageOpen(e) {
