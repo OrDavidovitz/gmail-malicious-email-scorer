@@ -16,18 +16,18 @@ return buildErrorCard(error);
 }
 
 function buildEmailPayload(message) {
-const attachments = message.getAttachments() || [];
-const attachmentNames = attachments.map(function(attachment) {
-return attachment.getName();
-});
+  const attachments = message.getAttachments() || [];
+  const attachmentNames = attachments.map(function(attachment) {
+    return attachment.getName();
+  });
 
-return {
-from: message.getFrom(),
-replyTo: message.getReplyTo(),
-subject: message.getSubject(),
-body: message.getPlainBody(),
-attachmentNames: attachmentNames
-};
+  return {
+    from: message.getFrom(),
+    replyTo: message.getReplyTo(),
+    subject: maskSensitiveText(message.getSubject()),
+    body: maskSensitiveText(message.getPlainBody()),
+    attachmentNames: attachmentNames
+  };
 }
 
 function analyzeEmail(payload) {
@@ -111,23 +111,25 @@ CardService.newCardHeader()
 }
 
 function buildErrorCard(error) {
-const section = CardService.newCardSection()
-.addWidget(
-CardService.newTextParagraph()
-.setText(
-'<b>Analysis failed</b><br>' +
-escapeHtml(error.message)
-)
-);
+  console.error(error);
 
-return CardService.newCardBuilder()
-.setHeader(
-CardService.newCardHeader()
-.setTitle('Email Risk Analysis')
-.setSubtitle('Could not analyze this email')
-)
-.addSection(section)
-.build();
+  const section = CardService.newCardSection()
+    .addWidget(
+      CardService.newTextParagraph()
+        .setText(
+          '<b>Security scan is currently unavailable.</b><br>' +
+          'Please try again later. If the issue continues, verify that the backend service is reachable.'
+        )
+    );
+
+  return CardService.newCardBuilder()
+    .setHeader(
+      CardService.newCardHeader()
+        .setTitle('Email Risk Analysis')
+        .setSubtitle('Could not analyze this email')
+    )
+    .addSection(section)
+    .build();
 }
 
 function escapeHtml(value) {
@@ -139,4 +141,15 @@ return String(value)
 .replace(/&/g, '&amp;')
 .replace(/</g, '&lt;')
 .replace(/>/g, '&gt;');
+}
+
+function maskSensitiveText(value) {
+  if (value === null || value === undefined) {
+    return '';
+  }
+
+  return String(value)
+    .replace(/\b(?:\d[ -]*?){13,16}\b/g, '[MASKED_CARD]')
+    .replace(/\b\d{3}[-.\s]?\d{2}[-.\s]?\d{4}\b/g, '[MASKED_ID]')
+    .replace(/\b(?:\+?\d{1,3}[-.\s]?)?(?:\d{2,3}[-.\s]?\d{7}|\d{3}[-.\s]?\d{3}[-.\s]?\d{4})\b/g, '[MASKED_PHONE]');
 }
