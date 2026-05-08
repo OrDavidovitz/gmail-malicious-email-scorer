@@ -9,10 +9,12 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.annotation.DirtiesContext;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+import org.springframework.test.context.TestPropertySource;
 
 @SpringBootTest
 @AutoConfigureMockMvc
 @DirtiesContext(classMode = DirtiesContext.ClassMode.BEFORE_EACH_TEST_METHOD)
+@TestPropertySource(properties = "security.api.key=test-api-key")
 class AnalysisControllerTest {
 
     @Autowired
@@ -66,7 +68,7 @@ class AnalysisControllerTest {
                 """;
 
         mockMvc.perform(post("/api/analyze")
-                        .header("X-API-Key", "dev-secret")
+                        .header("X-API-Key", "test-api-key")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(requestBody))
                 .andExpect(status().isOk())
@@ -88,14 +90,14 @@ class AnalysisControllerTest {
 
         for (int i = 0; i < 30; i++) {
             mockMvc.perform(post("/api/analyze")
-                            .header("X-API-Key", "dev-secret")
+                            .header("X-API-Key", "test-api-key")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(requestBody))
                     .andExpect(status().isOk());
         }
 
         mockMvc.perform(post("/api/analyze")
-                        .header("X-API-Key", "dev-secret")
+                        .header("X-API-Key", "test-api-key")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(requestBody))
                 .andExpect(status().isTooManyRequests());
