@@ -41,21 +41,38 @@ When the user opens an email in Gmail and launches the add-on, the system:
 6. Maps the score to a verdict: LOW, MEDIUM, HIGH, or CRITICAL.
 7. Displays the result and the reasoning directly inside Gmail.
 
-Example result:
+Example Gmail card output:
 
 ```text
-Maliciousness Score: 80/100
+Maliciousness Score: 100/100
 Verdict: CRITICAL
 
+Summary:
+This email contains several suspicious indicators.
+
+Recommended action:
+Do not click links or download attachments. Verify the sender through another trusted channel.
+
 Why this email was flagged:
-CONTENT - HIGH
-Email asks about login, password, or credential-related actions.
+ATTACHMENT - HIGH
+Email contains an attachment using a double-extension trick.
+Points: 30
 
 LINK - HIGH
 Email contains a shortened URL, which can hide the final destination.
+Points: 25
 
 SENDER - HIGH
 Sender domain appears to imitate a known brand.
+Points: 25
+
+CONTENT - HIGH
+Email asks about login, password, or credential-related actions.
+Points: 20
+
+CONTENT - MEDIUM
+Email uses urgent or pressure-based language.
+Points: 15
 ```
 
 ## Repository structure
@@ -567,6 +584,12 @@ attachmentNames
 
 It does not send the full Gmail object.
 
+### Sensitive data masking
+
+Before sending the subject and body to the backend, the Gmail Add-on masks common sensitive patterns such as card-like numbers, ID-like numbers, and phone-like numbers.
+
+This reduces unnecessary exposure of sensitive data while still allowing the backend to analyze phishing language. This is a lightweight privacy layer, not a complete DLP system.
+
 ### Attachment content is not downloaded
 
 The system analyzes attachment names and extensions only.
@@ -635,6 +658,7 @@ Mitigations implemented:
 
 - The backend validates request field sizes.
 - The add-on sends only selected fields instead of the full Gmail object.
+- The add-on masks common sensitive patterns before sending subject/body text to the backend.
 - Attachment contents are not downloaded or opened.
 - Links are not opened, followed, or expanded.
 - Displayed text is escaped before rendering inside the Gmail card.
@@ -656,6 +680,7 @@ This is an MVP built for a home assignment. It intentionally avoids several prod
 - No threat intelligence enrichment.
 - No URL redirect expansion.
 - No attachment sandboxing.
+- Sensitive data masking is regex-based and not a complete DLP solution.
 - Only lightweight shared API key protection is implemented between the add-on and backend. Production should use stronger authentication and managed secret storage.
 - No rate limiting.
 - No persistent logging or audit trail.
@@ -672,6 +697,7 @@ If this were extended into a production-grade security product, the next steps w
 - Add rate limiting and abuse protection.
 - Add structured logging and monitoring.
 - Add safe URL expansion inside an isolated environment.
+- Replace regex-based masking with a proper DLP pipeline for sensitive data detection.
 - Add threat intelligence checks for domains and URLs.
 - Add SPF, DKIM, DMARC, and full header analysis.
 - Add attachment scanning in a sandbox.
