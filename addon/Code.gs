@@ -6,7 +6,7 @@ try {
 GmailApp.setCurrentMessageAccessToken(e.gmail.accessToken);
 
 const message = GmailApp.getMessageById(e.gmail.messageId);
-const payload = buildEmailPayload(message);
+const payload = buildEmailPayload(message, e.gmail.messageId);
 const result = analyzeEmail(payload);
 
 return buildResultCard(result);
@@ -15,7 +15,7 @@ return buildErrorCard(error);
 }
 }
 
-function buildEmailPayload(message) {
+function buildEmailPayload(message, messageId) {
   const attachments = message.getAttachments() || [];
   const attachmentNames = attachments.map(function(attachment) {
     return attachment.getName();
@@ -26,6 +26,7 @@ function buildEmailPayload(message) {
     replyTo: message.getReplyTo(),
     subject: maskSensitiveText(message.getSubject()),
     body: maskSensitiveText(message.getPlainBody()),
+    authenticationResults: getAuthenticationResultsHeader(messageId),
     attachmentNames: attachmentNames
   };
 }
@@ -169,4 +170,31 @@ function getApiKey() {
   }
 
   return apiKey;
+}
+
+function getAuthenticationResultsHeader(messageId) {
+  try {
+    const response = Gmail.Users.Messages.get('me', messageId, {
+      format: 'metadata',
+      metadataHeaders: ['Authentication-Results', 'ARC-Authentication-Results']
+    });
+
+    const headers = response.payload && response.payload.headers
+      ? response.payload.headers
+      : [];
+
+    const values = headers
+      .filter(function(header) {
+        return header.name === 'Authentication-Results' ||
+               header.name === 'ARC-Authentication-Results';
+      })
+      .map(function(header) {
+        return header.value;
+      });
+
+    return values.join('\n');
+  } catch (error) {
+    console.error(error);
+    return '';
+  }
 }

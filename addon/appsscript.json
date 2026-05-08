@@ -5,7 +5,8 @@
   "oauthScopes": [
     "https://www.googleapis.com/auth/gmail.addons.execute",
     "https://www.googleapis.com/auth/gmail.addons.current.message.readonly",
-    "https://www.googleapis.com/auth/script.external_request"
+    "https://www.googleapis.com/auth/script.external_request",
+    "https://www.googleapis.com/auth/gmail.metadata"
   ],
   "addOns": {
     "common": {
@@ -23,7 +24,7 @@
         }
       ],
       "openLinkUrlPrefixes": [
-        "https://email-security-backend-557464179156.europe-west1.run.app"
+        "https://email-security-backend-eitwdbwn3q-ew.a.run.app"
       ]
     }
   }
