@@ -14,7 +14,7 @@ Google Apps Script Gmail Add-on
       |
       | JSON over HTTPS
       v
-ngrok tunnel, for local demo
+Cloud Run HTTPS service
       |
       v
 Dockerized Spring Boot backend
@@ -129,7 +129,7 @@ Contains sample JSON payloads for manual API testing without Gmail.
 | Build | Maven | Standard Java dependency and build management |
 | Testing | JUnit and Spring Boot Test | Automated verification of core behavior |
 | Runtime | Docker | Reproducible backend environment |
-| Local demo exposure | ngrok | Temporary HTTPS tunnel from Gmail to local backend |
+| Cloud deployment | Google Cloud Run | Managed HTTPS runtime for the Dockerized backend |
 
 ## API contract
 
@@ -351,6 +351,76 @@ The Dockerfile uses a multi-stage build:
 
 This keeps the runtime image cleaner and avoids requiring Java or Maven to be installed on the reviewer machine.
 
+## Deploying to Cloud Run
+
+The backend is containerized, so it can be deployed directly to Google Cloud Run.
+
+The submitted demo uses Cloud Run as the public HTTPS backend for the Gmail Add-on:
+
+```text
+https://email-security-backend-557464179156.europe-west1.run.app
+```
+
+Enable the required Google Cloud services:
+
+```bash
+gcloud services enable run.googleapis.com cloudbuild.googleapis.com artifactregistry.googleapis.com
+```
+
+Deploy from the backend directory:
+
+```bash
+cd backend
+gcloud run deploy email-security-backend \
+  --source . \
+  --region europe-west1 \
+  --allow-unauthenticated \
+  --set-env-vars EMAIL_ANALYZER_API_KEY=dev-secret
+```
+
+The `--source .` flag lets Cloud Build build the container from the backend source and Dockerfile. Cloud Run then runs the built container as a managed HTTPS service.
+
+The service is publicly reachable because Gmail Apps Script needs to call it over HTTPS. The `/api/analyze` endpoint is still protected by the `X-API-Key` header.
+
+Cloud Run health check:
+
+```bash
+curl https://email-security-backend-557464179156.europe-west1.run.app/api/health
+```
+
+Analyze endpoint without API key:
+
+```bash
+curl -i -X POST https://email-security-backend-557464179156.europe-west1.run.app/api/analyze \
+  -H "Content-Type: application/json" \
+  -d @examples/phishing-email.json
+```
+
+Expected result:
+
+```text
+HTTP/2 401
+```
+
+Analyze endpoint with API key:
+
+```bash
+curl -i -X POST https://email-security-backend-557464179156.europe-west1.run.app/api/analyze \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: dev-secret" \
+  -d @examples/phishing-email.json
+```
+
+Expected result:
+
+```text
+HTTP/2 200
+score: 100
+verdict: CRITICAL
+```
+
+Cloud Run is still not a complete production setup by itself. A production version should use stronger authentication, managed secrets, rate limiting, structured logging, monitoring, and alerting.
+
 ## Manual API testing
 
 From the project root, while the backend is running:
@@ -420,36 +490,24 @@ In Apps Script:
 3. Open `appsscript.json`.
 4. Copy the contents of `addon/appsscript.json` into the Apps Script manifest file.
 
-### 3. Expose the local backend through HTTPS
+### 3. Configure the backend URL
 
 Google Apps Script runs in Google cloud, so it cannot call `localhost`.
 
-For local demo, expose the backend with ngrok:
-
-```bash
-ngrok http 8080
-```
-
-Example output:
-
-```text
-Forwarding https://YOUR-NGROK-URL.ngrok-free.dev -> http://localhost:8080
-```
-
-Update these constants in `Code.gs`:
+The submitted version uses the deployed Cloud Run backend:
 
 ```javascript
-const BACKEND_URL = 'https://YOUR-NGROK-URL.ngrok-free.dev';
+const BACKEND_URL = 'https://email-security-backend-557464179156.europe-west1.run.app';
 const API_KEY = 'dev-secret';
 ```
 
 The Apps Script client sends the API key to the backend using the `X-API-Key` header.
 
-Also update the same URL in `appsscript.json`:
+The same Cloud Run URL should appear in `appsscript.json`:
 
 ```json
 "openLinkUrlPrefixes": [
-  "https://YOUR-NGROK-URL.ngrok-free.dev"
+  "https://email-security-backend-557464179156.europe-west1.run.app"
 ]
 ```
 
@@ -546,11 +604,19 @@ The backend reads the expected key from the `EMAIL_ANALYZER_API_KEY` environment
 
 This is a lightweight demo-level protection so the exposed backend endpoint is not completely open. In production, this should be replaced with stronger authentication, managed secret storage, request authorization, and rate limiting.
 
-### ngrok is used only for local demo
+### Cloud Run deployment
 
-ngrok is not a production deployment strategy. It is used to let Gmail call a local backend during development.
+The backend is deployed to Google Cloud Run as a managed HTTPS service. This removes the need for ngrok in the main demo and better represents the production direction of the system.
 
-In production, the backend should be deployed to a managed cloud service behind HTTPS.
+Cloud Run runs the same Dockerized Spring Boot backend that can also be executed locally. This keeps local development and cloud deployment aligned.
+
+The Cloud Run service is publicly reachable so that Google Apps Script can call it, but the analysis endpoint still requires the `X-API-Key` header.
+
+### Development note
+
+During early local development, the backend was tested through a temporary HTTPS tunnel because Google Apps Script cannot call `localhost` directly.
+
+The submitted version no longer depends on a tunnel. The Gmail Add-on is configured to call the deployed Cloud Run backend.
 
 ## Threat model
 
@@ -562,7 +628,7 @@ Main risks considered:
 - Suspicious links designed to track users or redirect to malicious infrastructure.
 - Attachments with risky extensions or deceptive double extensions.
 - Sender spoofing, reply-to mismatch, and lookalike domains.
-- Public exposure of the backend endpoint during demo.
+- Public exposure of the Cloud Run backend endpoint.
 - Unexpected text rendered inside the Gmail Add-on UI.
 
 Mitigations implemented:
@@ -601,7 +667,7 @@ These limitations are known and documented. The current version focuses on a wor
 
 If this were extended into a production-grade security product, the next steps would be:
 
-- Deploy the Dockerized backend to Google Cloud Run, AWS ECS/Fargate, or Kubernetes.
+- Move the API key to managed secret storage, such as Google Secret Manager.
 - Replace the demo API key with stronger authentication between the Gmail Add-on and backend.
 - Add rate limiting and abuse protection.
 - Add structured logging and monitoring.
