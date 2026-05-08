@@ -34,7 +34,24 @@ class AnalysisControllerTest {
                         .content(requestBody))
                 .andExpect(status().isUnauthorized());
     }
+    @Test
+    void analyzeWithInvalidApiKeyShouldReturnUnauthorized() throws Exception {
+        String requestBody = """
+            {
+              "from": "PayPal Security <security@paypa1-support.com>",
+              "replyTo": "support@gmail.com",
+              "subject": "Urgent: verify your account now",
+              "body": "Your account will be suspended. Click https://bit.ly/verify-paypal-now to verify your password immediately.",
+              "attachmentNames": ["invoice.pdf.exe"]
+            }
+            """;
 
+        mockMvc.perform(post("/api/analyze")
+                        .header("X-API-Key", "wrong-secret")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requestBody))
+                .andExpect(status().isUnauthorized());
+    }
     @Test
     void analyzeWithValidApiKeyShouldReturnAnalysis() throws Exception {
         String requestBody = """
