@@ -4,6 +4,7 @@ import com.upwind.emailsecurity.config.ApiKeyProperties;
 import com.upwind.emailsecurity.model.EmailAnalysisRequest;
 import com.upwind.emailsecurity.model.EmailAnalysisResponse;
 import com.upwind.emailsecurity.service.EmailAnalysisService;
+import com.upwind.emailsecurity.service.RateLimiterService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
@@ -16,11 +17,14 @@ public class AnalysisController {
 
     private final EmailAnalysisService emailAnalysisService;
     private final ApiKeyProperties apiKeyProperties;
+    private final RateLimiterService rateLimiterService;
 
     public AnalysisController(EmailAnalysisService emailAnalysisService,
-                              ApiKeyProperties apiKeyProperties) {
+                              ApiKeyProperties apiKeyProperties,
+                              RateLimiterService rateLimiterService) {
         this.emailAnalysisService = emailAnalysisService;
         this.apiKeyProperties = apiKeyProperties;
+        this.rateLimiterService = rateLimiterService;
     }
 
     @GetMapping("/health")
@@ -32,6 +36,8 @@ public class AnalysisController {
     public EmailAnalysisResponse analyze(@RequestHeader(value = API_KEY_HEADER, required = false) String apiKey,
                                          @Valid @RequestBody EmailAnalysisRequest request) {
         validateApiKey(apiKey);
+        validateRateLimit(apiKey);
+
         return emailAnalysisService.analyze(request);
     }
 
@@ -41,7 +47,17 @@ public class AnalysisController {
         }
     }
 
+    private void validateRateLimit(String apiKey) {
+        if (!rateLimiterService.isAllowed(apiKey)) {
+            throw new RateLimitExceededException();
+        }
+    }
+
     @ResponseStatus(HttpStatus.UNAUTHORIZED)
     private static class UnauthorizedException extends RuntimeException {
+    }
+
+    @ResponseStatus(HttpStatus.TOO_MANY_REQUESTS)
+    private static class RateLimitExceededException extends RuntimeException {
     }
 }
