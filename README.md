@@ -54,6 +54,10 @@ Recommended action:
 Do not click links or download attachments. Verify the sender through another trusted channel.
 
 Why this email was flagged:
+AUTHENTICATION - HIGH
+Email authentication check failed for DMARC.
+Points: 30
+
 ATTACHMENT - HIGH
 Email contains an attachment using a double-extension trick.
 Points: 30
@@ -564,7 +568,6 @@ The same Cloud Run URL should appear in `appsscript.json`:
 
 The Apps Script project also uses the Gmail advanced service to read selected message metadata headers for email authentication checks. Enable the Gmail API service in Apps Script and include the `gmail.metadata` scope in `appsscript.json`.
 
-
 ### 4. Install test deployment
 
 In Apps Script:
@@ -578,10 +581,10 @@ In Apps Script:
 Required scopes:
 
 ```text
-gmail.addons.execute
-gmail.addons.current.message.readonly
-script.external_request
-gmail.metadata
+https://www.googleapis.com/auth/gmail.addons.execute
+https://www.googleapis.com/auth/gmail.addons.current.message.readonly
+https://www.googleapis.com/auth/script.external_request
+https://www.googleapis.com/auth/gmail.metadata
 ```
 
 ### 5. Test in Gmail
@@ -617,6 +620,7 @@ from
 replyTo
 subject
 body
+authenticationResults
 attachmentNames
 ```
 
