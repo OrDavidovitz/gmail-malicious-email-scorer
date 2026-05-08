@@ -170,7 +170,11 @@ Content-Type: application/json
 X-API-Key: <api-key>
 ```
 
-The analysis endpoint requires an `X-API-Key` header. For local development, the default key is `dev-secret`. In a real deployment, the key should be provided through an environment variable and stored using managed secret storage.
+The analysis endpoint requires an `X-API-Key` header. The backend reads the expected key from the `EMAIL_ANALYZER_API_KEY` environment variable. The Gmail Add-on reads the client-side key from Apps Script Script Properties using the same property name.
+
+The endpoint also applies basic rate limiting. If the request limit is exceeded, it returns `429 Too Many Requests`.
+
+Do not commit real API keys to the repository. Use a throwaway local value for development and a separate value for deployed environments.
 
 Request example:
 
@@ -302,10 +306,10 @@ From the backend directory:
 
 ```bash
 cd backend
-EMAIL_ANALYZER_API_KEY=dev-secret ./mvnw spring-boot:run
+EMAIL_ANALYZER_API_KEY=<YOUR_API_KEY> ./mvnw spring-boot:run
 ```
 
-If `EMAIL_ANALYZER_API_KEY` is not provided, the backend falls back to `dev-secret` for local development.
+Set `EMAIL_ANALYZER_API_KEY` to the same value that the client sends in the `X-API-Key` header. Use a throwaway value for local development and do not commit real secrets.
 
 Health check:
 
@@ -335,6 +339,7 @@ The test suite verifies:
 - The score is capped at 100.
 - A double-extension attachment is not double-counted as two separate attachment risks.
 - The `/api/analyze` endpoint rejects requests without a valid API key.
+- The `/api/analyze` endpoint returns `429 Too Many Requests` when the API key exceeds the request limit.
 
 ## Running with Docker
 
@@ -349,7 +354,7 @@ Run the container:
 
 ```bash
 docker run -p 8080:8080 \
-  -e EMAIL_ANALYZER_API_KEY=dev-secret \
+  -e EMAIL_ANALYZER_API_KEY=<YOUR_API_KEY> \
   email-security-backend
 ```
 
@@ -392,7 +397,7 @@ gcloud run deploy email-security-backend \
   --source . \
   --region europe-west1 \
   --allow-unauthenticated \
-  --set-env-vars EMAIL_ANALYZER_API_KEY=dev-secret
+  --set-env-vars EMAIL_ANALYZER_API_KEY=<YOUR_API_KEY>
 ```
 
 The `--source .` flag lets Cloud Build build the container from the backend source and Dockerfile. Cloud Run then runs the built container as a managed HTTPS service.
@@ -424,7 +429,7 @@ Analyze endpoint with API key:
 ```bash
 curl -i -X POST https://email-security-backend-557464179156.europe-west1.run.app/api/analyze \
   -H "Content-Type: application/json" \
-  -H "X-API-Key: dev-secret" \
+  -H "X-API-Key: <YOUR_API_KEY>" \
   -d @examples/phishing-email.json
 ```
 
@@ -436,7 +441,7 @@ score: 100
 verdict: CRITICAL
 ```
 
-Cloud Run is still not a complete production setup by itself. A production version should use stronger authentication, managed secrets, rate limiting, structured logging, monitoring, and alerting.
+Cloud Run is still not a complete production setup by itself. A production version should use stronger authentication, managed secrets, distributed edge rate limiting, structured logging, monitoring, and alerting.
 
 ## Manual API testing
 
@@ -445,7 +450,7 @@ From the project root, while the backend is running:
 ```bash
 curl -X POST http://localhost:8080/api/analyze \
   -H "Content-Type: application/json" \
-  -H "X-API-Key: dev-secret" \
+  -H "X-API-Key: <YOUR_API_KEY>" \
   -d @examples/phishing-email.json
 ```
 
@@ -461,7 +466,7 @@ Benign example:
 ```bash
 curl -X POST http://localhost:8080/api/analyze \
   -H "Content-Type: application/json" \
-  -H "X-API-Key: dev-secret" \
+  -H "X-API-Key: <YOUR_API_KEY>" \
   -d @examples/benign-email.json
 ```
 
@@ -515,10 +520,16 @@ The submitted version uses the deployed Cloud Run backend:
 
 ```javascript
 const BACKEND_URL = 'https://email-security-backend-557464179156.europe-west1.run.app';
-const API_KEY = 'dev-secret';
+const API_KEY_PROPERTY_NAME = 'EMAIL_ANALYZER_API_KEY';
 ```
 
-The Apps Script client sends the API key to the backend using the `X-API-Key` header.
+The API key itself is not hardcoded in `Code.gs`. Store it in Apps Script under Project Settings -> Script properties:
+
+```text
+EMAIL_ANALYZER_API_KEY=<YOUR_API_KEY>
+```
+
+The Apps Script client reads the property at runtime and sends it to the backend using the `X-API-Key` header.
 
 The same Cloud Run URL should appear in `appsscript.json`:
 
@@ -623,9 +634,17 @@ Reasons:
 
 The `/api/analyze` endpoint requires an `X-API-Key` header.
 
-The backend reads the expected key from the `EMAIL_ANALYZER_API_KEY` environment variable and falls back to `dev-secret` for local development. This keeps the Java backend from hardcoding the secret directly in controller logic and makes the runtime configuration explicit.
+The backend reads the expected key from the `EMAIL_ANALYZER_API_KEY` environment variable. The Gmail Add-on reads the client-side value from Apps Script Script Properties using the same property name.
 
-This is a lightweight demo-level protection so the exposed backend endpoint is not completely open. In production, this should be replaced with stronger authentication, managed secret storage, request authorization, and rate limiting.
+This avoids committing the actual key in the repository and keeps runtime configuration explicit. The current implementation is still lightweight demo-level protection, so in production it should be replaced with stronger authentication, managed secret storage, request authorization, and distributed rate limiting.
+
+### Basic rate limiting
+
+The `/api/analyze` endpoint includes a lightweight application-level rate limiter.
+
+The current implementation allows up to 30 analysis requests per 60-second window per API key. If the limit is exceeded, the backend returns `429 Too Many Requests`.
+
+This protects the public Cloud Run endpoint from simple abuse during the demo. The limiter is intentionally lightweight and in-memory. In production, rate limiting should be enforced at the edge or through a shared backing store because Cloud Run can scale to multiple instances.
 
 ### Cloud Run deployment
 
@@ -663,7 +682,8 @@ Mitigations implemented:
 - Links are not opened, followed, or expanded.
 - Displayed text is escaped before rendering inside the Gmail card.
 - The `/api/analyze` endpoint requires an `X-API-Key` header.
-- The backend reads the API key from an environment variable, with a development fallback for local testing.
+- The backend applies basic rate limiting to the analysis endpoint.
+- The backend reads the API key from an environment variable, and the add-on reads it from Apps Script Script Properties.
 
 Remaining risks:
 
@@ -682,7 +702,7 @@ This is an MVP built for a home assignment. It intentionally avoids several prod
 - No attachment sandboxing.
 - Sensitive data masking is regex-based and not a complete DLP solution.
 - Only lightweight shared API key protection is implemented between the add-on and backend. Production should use stronger authentication and managed secret storage.
-- No rate limiting.
+- Rate limiting is implemented in-memory and is not distributed across multiple Cloud Run instances.
 - No persistent logging or audit trail.
 - Heuristic scoring can produce false positives and false negatives.
 
@@ -694,7 +714,7 @@ If this were extended into a production-grade security product, the next steps w
 
 - Move the API key to managed secret storage, such as Google Secret Manager.
 - Replace the demo API key with stronger authentication between the Gmail Add-on and backend.
-- Add rate limiting and abuse protection.
+- Move rate limiting to the edge, for example API Gateway, Cloud Armor, or a shared distributed store.
 - Add structured logging and monitoring.
 - Add safe URL expansion inside an isolated environment.
 - Replace regex-based masking with a proper DLP pipeline for sensitive data detection.
