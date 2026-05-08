@@ -1,4 +1,4 @@
-const BACKEND_URL = 'https://superman-comprised-opposite.ngrok-free.dev';
+const BACKEND_URL = 'https://email-security-backend-557464179156.europe-west1.run.app';
 const API_KEY = 'dev-secret';
 
 function onGmailMessageOpen(e) {
