@@ -36,7 +36,7 @@ When the user opens an email in Gmail and launches the add-on, the system:
 1. Reads the currently opened Gmail message.
 2. Extracts selected fields from the message.
 3. Sends those fields as JSON to the backend API.
-4. Runs sender, content, link, and attachment analysis.
+4. Runs sender, email-authentication, content, link, and attachment analysis.
 5. Calculates a maliciousness score from 0 to 100.
 6. Maps the score to a verdict: LOW, MEDIUM, HIGH, or CRITICAL.
 7. Displays the result and the reasoning directly inside Gmail.
@@ -93,6 +93,7 @@ gmail-malicious-email-scorer/
     src/
       main/
         java/com/upwind/emailsecurity/
+          config/
           controller/
           detector/
           model/
@@ -184,6 +185,7 @@ Request example:
   "replyTo": "support@gmail.com",
   "subject": "Urgent: verify your account now",
   "body": "Your account will be suspended. Click https://bit.ly/verify-paypal-now to verify your password immediately.",
+  "authenticationResults": "spf=fail dkim=pass dmarc=fail",
   "attachmentNames": ["invoice.pdf.exe"]
 }
 ```
@@ -201,6 +203,12 @@ Response example:
       "severity": "MEDIUM",
       "message": "Reply-To domain is different from the sender domain.",
       "points": 15
+    },
+    {
+      "category": "AUTHENTICATION",
+      "severity": "HIGH",
+      "message": "Email authentication check failed for DMARC.",
+      "points": 30
     },
     {
       "category": "LINK",
@@ -237,6 +245,19 @@ Lookalike domain detection normalizes common substitutions:
 ```
 
 It also uses Levenshtein distance to detect domains that are one character edit away from known brands. This is treated as a suspicious signal, not as definitive proof of maliciousness.
+
+### AuthenticationDetector
+
+Checks email authentication metadata from Gmail message headers:
+
+- SPF failure.
+- DKIM failure.
+- DMARC failure.
+- SPF soft failure or neutral result.
+
+The Gmail Add-on reads only specific metadata headers, such as `Authentication-Results` and `ARC-Authentication-Results`, through the Gmail API metadata flow. It does not fetch the raw full email content for this check.
+
+The detector adds risk signals only for suspicious authentication results. A passing SPF, DKIM, or DMARC result is useful context, but it does not automatically prove that an email is safe.
 
 ### ContentDetector
 
@@ -291,11 +312,12 @@ Example:
 
 ```text
 Reply-To mismatch                 +15
+DMARC authentication failure       +30
 Lookalike sender domain           +25
 Urgency language                  +15
 Credential-related language       +20
 Shortened URL                     +25
-Raw total                         100
+Raw total                         130
 Final score                       100
 Verdict                           CRITICAL
 ```
@@ -340,6 +362,7 @@ The test suite verifies:
 - A double-extension attachment is not double-counted as two separate attachment risks.
 - The `/api/analyze` endpoint rejects requests without a valid API key.
 - The `/api/analyze` endpoint returns `429 Too Many Requests` when the API key exceeds the request limit.
+- Failed SPF/DMARC authentication headers produce authentication risk signals.
 
 ## Running with Docker
 
@@ -539,6 +562,9 @@ The same Cloud Run URL should appear in `appsscript.json`:
 ]
 ```
 
+The Apps Script project also uses the Gmail advanced service to read selected message metadata headers for email authentication checks. Enable the Gmail API service in Apps Script and include the `gmail.metadata` scope in `appsscript.json`.
+
+
 ### 4. Install test deployment
 
 In Apps Script:
@@ -555,6 +581,7 @@ Required scopes:
 gmail.addons.execute
 gmail.addons.current.message.readonly
 script.external_request
+gmail.metadata
 ```
 
 ### 5. Test in Gmail
@@ -600,6 +627,12 @@ It does not send the full Gmail object.
 Before sending the subject and body to the backend, the Gmail Add-on masks common sensitive patterns such as card-like numbers, ID-like numbers, and phone-like numbers.
 
 This reduces unnecessary exposure of sensitive data while still allowing the backend to analyze phishing language. This is a lightweight privacy layer, not a complete DLP system.
+
+### Email authentication metadata
+
+The add-on reads selected Gmail metadata headers, specifically `Authentication-Results` and `ARC-Authentication-Results`, to detect failed SPF, DKIM, and DMARC checks.
+
+This improves sender-authenticity analysis without fetching the raw full email content. The backend treats these headers as untrusted input and validates their maximum size before analysis.
 
 ### Attachment content is not downloaded
 
@@ -669,7 +702,7 @@ Main risks considered:
 - Malicious or oversized email content sent to the backend.
 - Suspicious links designed to track users or redirect to malicious infrastructure.
 - Attachments with risky extensions or deceptive double extensions.
-- Sender spoofing, reply-to mismatch, and lookalike domains.
+- Sender spoofing, reply-to mismatch, lookalike domains, and failed email authentication checks.
 - Public exposure of the Cloud Run backend endpoint.
 - Unexpected text rendered inside the Gmail Add-on UI.
 
@@ -678,6 +711,7 @@ Mitigations implemented:
 - The backend validates request field sizes.
 - The add-on sends only selected fields instead of the full Gmail object.
 - The add-on masks common sensitive patterns before sending subject/body text to the backend.
+- The add-on reads only selected metadata headers for SPF, DKIM, and DMARC analysis.
 - Attachment contents are not downloaded or opened.
 - Links are not opened, followed, or expanded.
 - Displayed text is escaped before rendering inside the Gmail card.
@@ -688,7 +722,7 @@ Mitigations implemented:
 Remaining risks:
 
 - The shared API key is demo-level protection, not full production authentication.
-- The system does not verify SPF, DKIM, DMARC, or full raw email headers.
+- SPF, DKIM, and DMARC analysis depends on available Gmail metadata headers and does not perform independent DNS validation.
 - The system does not use threat intelligence or sandboxed URL/attachment analysis.
 - Heuristic detection can produce false positives and false negatives.
 
@@ -696,7 +730,7 @@ Remaining risks:
 
 This is an MVP built for a home assignment. It intentionally avoids several production-level features:
 
-- No SPF, DKIM, or DMARC header analysis.
+- SPF, DKIM, and DMARC analysis is based on Gmail metadata headers and does not perform independent DNS or raw-header validation.
 - No threat intelligence enrichment.
 - No URL redirect expansion.
 - No attachment sandboxing.
@@ -719,7 +753,7 @@ If this were extended into a production-grade security product, the next steps w
 - Add safe URL expansion inside an isolated environment.
 - Replace regex-based masking with a proper DLP pipeline for sensitive data detection.
 - Add threat intelligence checks for domains and URLs.
-- Add SPF, DKIM, DMARC, and full header analysis.
+- Add independent SPF, DKIM, DMARC validation and deeper raw-header analysis.
 - Add attachment scanning in a sandbox.
 - Add user feedback buttons to improve future scoring.
 - Add organization-level policy configuration.
