@@ -1,5 +1,5 @@
 const BACKEND_URL = 'https://email-security-backend-557464179156.europe-west1.run.app';
-const API_KEY = 'dev-secret';
+const API_KEY_PROPERTY_NAME = 'EMAIL_ANALYZER_API_KEY';
 
 function onGmailMessageOpen(e) {
 try {
@@ -31,21 +31,26 @@ function buildEmailPayload(message) {
 }
 
 function analyzeEmail(payload) {
-const response = UrlFetchApp.fetch(BACKEND_URL + '/api/analyze', {
-method: 'post',
-contentType: 'application/json',
-payload: JSON.stringify(payload),
-muteHttpExceptions: true
-});
+  const apiKey = getApiKey();
 
-const statusCode = response.getResponseCode();
-const responseText = response.getContentText();
+  const response = UrlFetchApp.fetch(BACKEND_URL + '/api/analyze', {
+    method: 'post',
+    contentType: 'application/json',
+    headers: {
+      'X-API-Key': apiKey
+    },
+    payload: JSON.stringify(payload),
+    muteHttpExceptions: true
+  });
 
-if (statusCode < 200 || statusCode >= 300) {
-throw new Error('Backend returned status ' + statusCode + ': ' + responseText);
-}
+  const statusCode = response.getResponseCode();
+  const responseText = response.getContentText();
 
-return JSON.parse(responseText);
+  if (statusCode < 200 || statusCode >= 300) {
+    throw new Error('Backend returned status ' + statusCode);
+  }
+
+  return JSON.parse(responseText);
 }
 
 function buildResultCard(result) {
@@ -152,4 +157,16 @@ function maskSensitiveText(value) {
     .replace(/\b(?:\d[ -]*?){13,16}\b/g, '[MASKED_CARD]')
     .replace(/\b\d{3}[-.\s]?\d{2}[-.\s]?\d{4}\b/g, '[MASKED_ID]')
     .replace(/\b(?:\+?\d{1,3}[-.\s]?)?(?:\d{2,3}[-.\s]?\d{7}|\d{3}[-.\s]?\d{3}[-.\s]?\d{4})\b/g, '[MASKED_PHONE]');
+}
+
+function getApiKey() {
+  const apiKey = PropertiesService
+    .getScriptProperties()
+    .getProperty(API_KEY_PROPERTY_NAME);
+
+  if (!apiKey) {
+    throw new Error('Missing Apps Script property: ' + API_KEY_PROPERTY_NAME);
+  }
+
+  return apiKey;
 }
